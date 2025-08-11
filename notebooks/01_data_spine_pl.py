@@ -105,6 +105,97 @@ except Exception:
 print('NF_TR check_items:', [] if not meta else meta.get('check_items'))
 
 #%%
+# STEP 1.4 — ECB QSA Loans F4 (PL): whom-to-whom minimal panel
+from pathlib import Path
+import pandas as pd
+from src.sdmx_helpers import get_dsd, fetch_series
+ROOT = ROOT
+proc = ROOT / 'data' / 'processed'
+proc.mkdir(parents=True, exist_ok=True)
+try:
+    info = get_dsd('ECB','QSA')
+    dims = info.dimensions
+    codes = info.codes
+    def has(dim, vals):
+        return dim in codes and all(v in set(codes[dim]) for v in vals)
+    instr_dim = next((d for d in dims if has(d,['F4'])), None)
+    entry_dim = next((d for d in dims if has(d,['A','L']) or has(d,['ASS','LIAB'])), None)
+    stock_dim = next((d for d in dims if has(d,['LE']) or has(d,['S','F'])), None)
+    unit_dim = next((d for d in dims if has(d,['MIO_EUR']) or has(d,['CP_MEUR'])), None)
+    geo_dim = next((d for d in dims if has(d,['PL'])), None)
+    cons_dim = next((d for d in dims if has(d,['N']) or has(d,['NC'])), None)
+    sec_dims = [d for d in dims if has(d,['S11','S12','S13','S14_S15'])][:2]
+    flt={'freq':'Q'}
+    if unit_dim: flt[unit_dim]='MIO_EUR'
+    if geo_dim: flt[geo_dim]='PL'
+    if instr_dim: flt[instr_dim]='F4'
+    if entry_dim: flt[entry_dim]=['A','L']
+    if stock_dim:
+        if has(stock_dim,['LE']): flt[stock_dim]='LE'
+        else: flt[stock_dim]=['S','F']
+    if cons_dim: flt[cons_dim]='N'
+    if len(sec_dims)==2:
+        flt[sec_dims[0]]=['S11','S12','S13','S14_S15']
+        flt[sec_dims[1]]=['S11','S12','S13','S14_S15']
+    df_qsa = fetch_series('QSA', flt, agency='ECB')
+    if df_qsa is None or df_qsa.empty:
+        df_qsa = pd.DataFrame()
+    else:
+        # normalize column names
+        ren={}
+        if instr_dim: ren[instr_dim]='instrument'
+        if entry_dim: ren[entry_dim]='entry'
+        if stock_dim: ren[stock_dim]='stock_flow_flag'
+        if len(sec_dims)==2:
+            ren[sec_dims[0]]='ref_sector'; ren[sec_dims[1]]='cp_sector'
+        df_qsa = df_qsa.rename(columns=ren)
+        keep=['time','ref_sector','cp_sector','instrument','entry','stock_flow_flag','unit','value','dataset','last_update']
+        for c in keep:
+            if c not in df_qsa.columns: df_qsa[c]=None
+        df_qsa = df_qsa[keep]
+    if not df_qsa.empty:
+        df_qsa.to_parquet(proc / 'ecb_QSA_PL.parquet')
+    print('QSA rows:', 0 if df_qsa is None else len(df_qsa))
+except Exception as e:
+    print('QSA pull failed:', e)
+
+#%%
+# STEP 1.4 — Eurostat revaluations (K.7) and other changes (K.1–K.6)
+from pathlib import Path
+import pandas as pd
+from src.sdmx_helpers import get_dsd, fetch_series
+ROOT = ROOT
+proc = ROOT / 'data' / 'processed'
+proc.mkdir(parents=True, exist_ok=True)
+
+def _pull_estat(dataset):
+    try:
+        info = get_dsd('ESTAT', dataset)
+    except Exception:
+        return pd.DataFrame()
+    unit = next((u for u in ['MIO_EUR','CP_MEUR'] if u in info.codes.get('unit',[])), None)
+    if not unit:
+        unit='MIO_EUR'
+    if dataset.endswith('_F_GL'):
+        items=[c for c in info.codes.get('na_item',[]) if str(c).startswith('K7') or str(c) in ('K7','K.7')]
+    else:
+        items=[c for c in info.codes.get('na_item',[]) if str(c).startswith('K')]
+    if not items: items = ['K7'] if dataset.endswith('_F_GL') else ['K1','K2','K3','K4','K5','K6']
+    filters={'freq':'Q','unit':unit,'sector':['S1','S11','S12','S13','S14_S15','S2'],'na_item':items,'geo':'PL'}
+    try:
+        return fetch_series(dataset, filters, agency='ESTAT')
+    except Exception:
+        return pd.DataFrame()
+
+df_gl=_pull_estat('NASQ_10_F_GL')
+df_oc=_pull_estat('NASQ_10_F_OC')
+if df_gl is not None and not df_gl.empty:
+    df_gl.to_parquet(proc / 'estat_nasq_10_f_gl_PL.parquet')
+if df_oc is not None and not df_oc.empty:
+    df_oc.to_parquet(proc / 'estat_nasq_10_f_oc_PL.parquet')
+print('F_GL rows:', 0 if df_gl is None else len(df_gl), '| F_OC rows:', 0 if df_oc is None else len(df_oc))
+
+#%%
 CFG = load_config()
 rc = verify(CFG)
 print('verify() exit code:', rc)

@@ -609,7 +609,18 @@ def verify(cfg: dict) -> None:
             return None
         sdf = df.copy()
         # Preferred stable sort order
-        pref = ["time", "sector", "na_item", "direct", "finpos", "instrument", "unit", "value"]
+        pref = [
+            "time",
+            "sector",
+            "na_item",
+            "direct",
+            "finpos",
+            "instrument",
+            "ref_sector",
+            "cp_sector",
+            "unit",
+            "value",
+        ]
         sort_cols = [c for c in pref if c in sdf.columns]
         if not sort_cols:
             sort_cols = sorted([c for c in sdf.columns])
