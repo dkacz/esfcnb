@@ -1,0 +1,5 @@
+pandasdmx
+nbclient
+nbformat
+pyarrow
+pandas

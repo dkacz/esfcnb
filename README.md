@@ -48,6 +48,61 @@ python scripts/sfc_pl_runner.py
 
 Exit codes: 0 (pass), 6 (verification failed but proof printed), 4 (proof missing), 2 (missing notebook).
 
+## Local Setup & Troubleshooting (Interactive Notebook)
+
+Follow these when opening `notebooks/01_data_spine_pl.ipynb` in VS Code so imports and parquet work reliably.
+
+- Package import: ensure `scripts/__init__.py` exists (it does). Keep the bootstrap cell as the first cell:
+
+```
+# --- Project root bootstrap for imports (VS Code/WSL/headless safe) ---
+import sys, importlib.util
+from pathlib import Path
+
+def find_repo_root() -> Path:
+    here = Path.cwd().resolve()
+    for parent in (here, *here.parents):
+        if (parent / 'scripts' / 'sfc_pl_runner.py').exists() and (parent / 'config' / 'sfc_pl_runner.yml').exists():
+            return parent
+    raise FileNotFoundError('Could not find project root with scripts/sfc_pl_runner.py and config/sfc_pl_runner.yml')
+
+ROOT = find_repo_root()
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+print('Project root:', ROOT)
+
+try:
+    from scripts.sfc_pl_runner import load_config, run_from_config, verify
+    print('Imported from package:', ROOT / 'scripts' / 'sfc_pl_runner.py')
+except ModuleNotFoundError:
+    mfp = ROOT / 'scripts' / 'sfc_pl_runner.py'
+    spec = importlib.util.spec_from_file_location('scripts.sfc_pl_runner', str(mfp))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[attr-defined]
+    load_config, run_from_config, verify = mod.load_config, mod.run_from_config, mod.verify
+    print('Imported via file path:', mfp)
+```
+
+- Kernel: in VS Code use "Python: Select Interpreter" or "Jupyter: Select Kernel" and pick your project venv.
+- Dependencies (install into the selected interpreter):
+
+```
+pip install -r requirements.txt
+# or
+pip install pandasdmx nbclient nbformat pyarrow pandas
+```
+
+- Sanity check inside a cell:
+
+```
+import sys, platform
+import pandasdmx, nbclient, nbformat, pandas, pyarrow
+print('OK:', pandasdmx.__version__, nbclient.__version__, pandas.__version__)
+print('exe:', sys.executable, '|', platform.platform())
+```
+
+- Paths: the runner executes with repo root as CWD; the notebook uses `ROOT / 'data' / ...` absolute paths (not relative paths).
+
 ## Dev UX
 
 - Paired percent script: `notebooks/01_data_spine_pl.py` (`#%%` cells) for code review and quick edits; the `.ipynb` holds rich outputs.
@@ -67,4 +122,3 @@ Exit codes: 0 (pass), 6 (verification failed but proof printed), 4 (proof missin
 - `config/sfc_pl_runner.yml` — YAML‑only configuration
 - `src/` — helpers (SDMX key builder, DSD cache, tidy, QC)
 - `data/processed/`, `logs/` — artifacts (gitignored)
-
