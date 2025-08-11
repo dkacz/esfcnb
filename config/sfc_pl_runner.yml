@@ -1,0 +1,14 @@
+run:
+  pull: false      # pull SDMX data
+  verify: true     # run QC + verification prints
+  execute_notebook: true   # headless execute the ipynb once
+io:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  log_file: logs/sfc_pl_runner.log
+  notebook_path: notebooks/01_data_spine_pl.ipynb
+safety:
+  destructive_ops: false
+nf_tr:
+  restrict_na_items: []   # e.g., ["D1","D4","D5","D6","D7","D8","D9"]
+  max_combinations: 20

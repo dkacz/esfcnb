@@ -1,0 +1,29 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Virtualenvs
+.venv/
+venv/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/executed_*.ipynb
+
+# Logs
+logs/
+
+# Data (artifacts)
+data/cache/
+data/raw/
+data/processed/
+
+# Environment
+.env
+.python-version
+

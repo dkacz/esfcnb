@@ -1,0 +1,12 @@
+run:
+  pull: true
+  verify: true
+io:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  log_file: logs/sfc_pl_runner.log
+safety:
+  destructive_ops: false
+nf_tr:
+  restrict_na_items: []
+  max_combinations: 20
